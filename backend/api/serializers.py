@@ -1,7 +1,7 @@
 
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Post, Comment, Follow , UserProfile ,  PasswordReset
+from .models import Post, Comment, Follow , UserProfile ,  PasswordReset , Like
 import logging
 
 # Create a logger for the api app
@@ -186,20 +186,54 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
         
         profile.save()
         return instance
- 
+
 class PostSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
-    image = serializers.ImageField(required=False, allow_null=True)  # Updated
-    image_url = serializers.SerializerMethodField()  # New field for image URL
+    image = serializers.ImageField(required=False, allow_null=True)
+    image_url = serializers.SerializerMethodField()
+    like_count = serializers.IntegerField(read_only=True)  # Read-only
+    is_liked = serializers.SerializerMethodField()
     
     class Meta:
         model = Post
-        fields = ['id', 'user', 'content', 'image', 'image_url', 'created_at', 'updated_at']
+        fields = ['id', 'user', 'content', 'image', 'image_url', 'created_at', 'updated_at', 'like_count', 'is_liked']
     
     def get_image_url(self, obj):
         if obj.image:
             return self.context['request'].build_absolute_uri(obj.image.url)
         return None
+    
+    def get_is_liked(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return Like.objects.filter(post=obj, user=request.user).exists()
+        return False
+    
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        logger.debug(f"Post {instance.id} serialized with like_count: {instance.like_count}, image_url: {data.get('image_url')}")
+        return data
+
+class LikeSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+    post = serializers.PrimaryKeyRelatedField(queryset=Post.objects.all(), required=True)
+    
+    class Meta:
+        model = Like
+        fields = ['id', 'user', 'post', 'created_at']
+    
+    def validate(self, attrs):
+        request = self.context.get('request')
+        user = request.user if request and request.user.is_authenticated else None
+        post = attrs.get('post')
+        if not user:
+            raise serializers.ValidationError({'user': 'Authentication required.'})
+        if Like.objects.filter(user=user, post=post).exists():
+            raise serializers.ValidationError({'post': f'You have already liked this post.'})
+        attrs['user'] = user
+        return attrs
+
+
 class CommentSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     post = serializers.PrimaryKeyRelatedField(queryset=Post.objects.all(), required=True)

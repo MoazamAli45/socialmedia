@@ -36,18 +36,31 @@ class PasswordReset(models.Model):
         indexes = [
             models.Index(fields=['token']),
         ]
-
-
 class Post(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     content = models.TextField()
-    image = models.ImageField(upload_to='posts/', null=True, blank=True)  # New field
+    image = models.ImageField(upload_to='posts/', null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    like_count = models.PositiveIntegerField(default=0)
     
     def __str__(self):
         return f"{self.user.username}'s post"
 
+class Like(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='likes')
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='likes')
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ('user', 'post')
+        indexes = [
+            models.Index(fields=['user', 'post']),
+        ]
+    
+    def __str__(self):
+        return f"{self.user.username} likes {self.post}"
+    
 class Comment(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE) 
     post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='comments')

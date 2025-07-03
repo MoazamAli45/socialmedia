@@ -5,11 +5,11 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny , IsAuthenticated
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate
-from .models import Post, Comment, Follow
+from .models import Post, Comment, Follow , Like
 from .serializers import (
     PostSerializer, CommentSerializer, FollowSerializer, UserSerializer,
     PasswordResetSerializer, PasswordResetConfirmSerializer, 
-    PasswordChangeSerializer, ProfileUpdateSerializer
+    PasswordChangeSerializer, ProfileUpdateSerializer , LikeSerializer
 )
 from django.contrib.auth.models import User
 from django.core.mail import send_mail
@@ -30,10 +30,19 @@ def get_validated_data(serializer) :
     validated_data = getattr(serializer, 'validated_data', {})
     return validated_data if isinstance(validated_data, dict) else {}
 
-
 class PostViewSet(viewsets.ModelViewSet):
     queryset = Post.objects.all().order_by('-created_at')
     serializer_class = PostSerializer
+    
+    def list(self, request, *args, **kwargs):
+        logger.debug(f"Listing posts for user: {request.user.username if request.user.is_authenticated else 'Anonymous'}")
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
     
     def perform_create(self, serializer):
         logger.debug(f"Creating post for user: {self.request.user.username}")
@@ -43,7 +52,51 @@ class PostViewSet(viewsets.ModelViewSet):
         except Exception as e:
             logger.error(f"Error creating post: {str(e)}")
             raise
-
+    
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    def like(self, request, pk=None):
+        logger.debug(f"Like request for post {pk} by user: {request.user.username}")
+        post = self.get_object()
+        serializer = LikeSerializer(data={'post': post.id}, context={'request': request})
+        if serializer.is_valid():
+            try:
+                serializer.save(user=request.user)  # Triggers signal to increment like_count
+                logger.info(f"Post {pk} liked by {request.user.username}")
+                return Response(
+                    {"message": "Post liked successfully", "like_count": post.like_count},
+                    status=status.HTTP_201_CREATED
+                )
+            except Exception as e:
+                logger.error(f"Error liking post {pk}: {str(e)}")
+                return Response(
+                    {"error": str(e)},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        logger.warning(f"Invalid like data: {serializer.errors}")
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    @action(detail=True, methods=['delete'], permission_classes=[IsAuthenticated])
+    def unlike(self, request, pk=None):
+        logger.debug(f"Unlike request for post {pk} by user: {request.user.username}")
+        post = self.get_object()
+        try:
+            like = Like.objects.get(post=post, user=request.user)
+            like.delete()  # Triggers signal to decrement like_count
+            logger.info(f"Post {pk} unliked by {request.user.username}")
+            return Response(
+                {"message": "Post unliked successfully", "like_count": post.like_count},
+                status=status.HTTP_200_OK
+            )
+        except Like.DoesNotExist:
+            logger.warning(f"User {request.user.username} has not liked post {pk}")
+            return Response(
+                {"error": "You have not liked this post"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            logger.error(f"Error unliking post {pk}: {str(e)}")
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        
 class CommentViewSet(viewsets.ModelViewSet):
     queryset = Comment.objects.all().order_by('-created_at')
     serializer_class = CommentSerializer
