@@ -3,6 +3,9 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import Post, Comment, Follow , UserProfile ,  PasswordReset , Like
 import logging
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
 
 # Create a logger for the api app
 logger = logging.getLogger('api')
@@ -16,14 +19,27 @@ class UserProfileSerializer(serializers.ModelSerializer):
     
     def get_profile_picture_url(self, obj: UserProfile) :
         if obj.profile_picture:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.profile_picture.url)
+            try:
+                # Handle CloudinaryResource object
+                public_id = str(obj.profile_picture)  # Converts CloudinaryResource to string
+                if public_id.startswith('image/upload/'):
+                    public_id = public_id.replace('image/upload/', '')
+                # Generate Cloudinary URL
+                url, _ = cloudinary.utils.cloudinary_url(
+                    public_id,
+                    resource_type='image',
+                    secure=True
+                )
+                logger.debug(f"Generated Cloudinary URL for public_id {public_id}: {url}")
+                return url
+            except Exception as e:
+                logger.error(f"Failed to generate Cloudinary URL for profile_picture {obj.profile_picture}: {str(e)}")
+                return None
+        logger.debug("No profile picture provided, returning None for profile_picture_url")
         return None
 
 class UserSerializer(serializers.ModelSerializer):
     profile = UserProfileSerializer(required=False, read_only=True)
-    # Individual profile fields for easier form-data handling
     profile_picture = serializers.ImageField(write_only=True, required=False)
     bio = serializers.CharField(write_only=True, required=False, allow_blank=True)
     location = serializers.CharField(write_only=True, required=False, allow_blank=True)
@@ -34,22 +50,34 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'username', 'email', 'first_name', 'last_name', 'profile', 
                  'profile_picture', 'bio', 'location', 'website', 'birth_date']
-        extra_kwargs = {
-            'password': {'write_only': True}
-        }
+        extra_kwargs = {'password': {'write_only': True}}
     
     def create(self, validated_data) -> User:
-        # Extract profile-related fields with defaults
         profile_picture = validated_data.pop('profile_picture', None)
         bio = validated_data.pop('bio', '')
         location = validated_data.pop('location', '')
         website = validated_data.pop('website', '')
         birth_date = validated_data.pop('birth_date', None)
         
-        # Create user
+        profile_picture_public_id = None
+        if profile_picture:
+            try:
+                upload_result = cloudinary.uploader.upload(
+                    profile_picture,
+                    resource_type='image',
+                    folder='profile_pics'
+                )
+                # Store the full public_id (e.g., profile_pics/wjzqcu8s4w6tcmlwtso1)
+                profile_picture_public_id = upload_result['public_id']
+                logger.debug(f"Uploaded image to Cloudinary, public_id: {profile_picture_public_id}")
+                # Verify the public_id
+                cloudinary.api.resource(profile_picture_public_id, resource_type='image')
+            except Exception as e:
+                logger.error(f"Cloudinary upload failed: {str(e)}")
+                raise serializers.ValidationError({"profile_picture": f"Failed to upload image to Cloudinary: {str(e)}"})
+        
         user: User = User.objects.create(**validated_data)
         
-        # Create user profile
         profile, created = UserProfile.objects.get_or_create(
             user=user,
             defaults={
@@ -57,36 +85,47 @@ class UserSerializer(serializers.ModelSerializer):
                 'location': location,
                 'website': website,
                 'birth_date': birth_date,
-                'profile_picture': profile_picture
+                'profile_picture': profile_picture_public_id
             }
         )
         
-        # If profile already exists, update it
         if not created:
             profile.bio = bio
             profile.location = location
             profile.website = website
             profile.birth_date = birth_date
-            if profile_picture:
-                profile.profile_picture = profile_picture
+            if profile_picture_public_id:
+                profile.profile_picture = profile_picture_public_id
             profile.save()
         
         return user
     
     def update(self, instance: User, validated_data) -> User:
-        # Extract profile-related fields with None defaults for optional updates
         profile_picture = validated_data.pop('profile_picture', None)
         bio = validated_data.pop('bio', None)
         location = validated_data.pop('location', None)
         website = validated_data.pop('website', None)
         birth_date = validated_data.pop('birth_date', None)
         
-        # Update user fields
+        profile_picture_public_id = None
+        if profile_picture:
+            try:
+                upload_result = cloudinary.uploader.upload(
+                    profile_picture,
+                    resource_type='image',
+                    folder='profile_pics'
+                )
+                profile_picture_public_id = upload_result['public_id']
+                logger.debug(f"Uploaded image to Cloudinary, public_id: {profile_picture_public_id}")
+                cloudinary.api.resource(profile_picture_public_id, resource_type='image')
+            except Exception as e:
+                logger.error(f"Cloudinary upload failed: {str(e)}")
+                raise serializers.ValidationError({"profile_picture": f"Failed to upload image to Cloudinary: {str(e)}"})
+        
         for key, value in validated_data.items():
             setattr(instance, key, value)
         instance.save()
         
-        # Update or create profile
         profile, created = UserProfile.objects.get_or_create(user=instance)
         
         if bio is not None:
@@ -97,15 +136,14 @@ class UserSerializer(serializers.ModelSerializer):
             profile.website = website
         if birth_date is not None:
             profile.birth_date = birth_date
-        if profile_picture:
-            profile.profile_picture = profile_picture
+        if profile_picture_public_id:
+            profile.profile_picture = profile_picture_public_id
         
         profile.save()
         return instance
     
-    def to_representation(self, instance: User) :
+    def to_representation(self, instance: User) -> dict:
         representation = super().to_representation(instance)
-        # Add profile data to representation
         try:
             profile = UserProfile.objects.get(user=instance)
             representation['profile'] = UserProfileSerializer(profile, context=self.context).data
@@ -147,7 +185,7 @@ class PasswordChangeSerializer(serializers.Serializer):
         return value
 
 class ProfileUpdateSerializer(serializers.ModelSerializer):
-    profile_picture = serializers.ImageField(required=False)
+    profile_picture = serializers.CharField(required=False, allow_blank=True)
     bio = serializers.CharField(required=False, allow_blank=True)
     location = serializers.CharField(required=False, allow_blank=True)
     website = serializers.URLField(required=False, allow_blank=True)
@@ -191,25 +229,57 @@ class PostSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     image = serializers.ImageField(required=False, allow_null=True)
     image_url = serializers.SerializerMethodField()
-    like_count = serializers.IntegerField(read_only=True)  # Read-only
+    like_count = serializers.IntegerField(read_only=True)
     is_liked = serializers.SerializerMethodField()
     
     class Meta:
         model = Post
         fields = ['id', 'user', 'content', 'image', 'image_url', 'created_at', 'updated_at', 'like_count', 'is_liked']
     
-    def get_image_url(self, obj):
+    def create(self, validated_data):
+        image = validated_data.pop('image', None)
+        image_public_id = None
+        if image:
+            try:
+                upload_result = cloudinary.uploader.upload(
+                    image,
+                    resource_type='image',
+                    folder='post_images'
+                )
+                image_public_id = upload_result['public_id']
+                logger.debug(f"Uploaded image to Cloudinary, public_id: {image_public_id}")
+                cloudinary.api.resource(image_public_id, resource_type='image')
+            except Exception as e:
+                logger.error(f"Cloudinary upload failed: {str(e)}")
+                raise serializers.ValidationError({"image": f"Failed to upload image to Cloudinary: {str(e)}"})
+        post = Post.objects.create(**validated_data, image=image_public_id)
+        return post
+    
+    def get_image_url(self, obj) :
         if obj.image:
-            return self.context['request'].build_absolute_uri(obj.image.url)
+            try:
+                public_id = str(obj.image)  # Handle CloudinaryResource
+                if public_id.startswith('image/upload/'):
+                    public_id = public_id.replace('image/upload/', '')
+                url, _ = cloudinary.utils.cloudinary_url(
+                    public_id,
+                    resource_type='image',
+                    secure=True
+                )
+                logger.debug(f"Generated Cloudinary URL for {public_id}: {url}")
+                return url
+            except Exception as e:
+                logger.error(f"Failed to generate Cloudinary URL for image {obj.image}: {str(e)}")
+                return None
         return None
     
-    def get_is_liked(self, obj):
+    def get_is_liked(self, obj) -> bool:
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             return Like.objects.filter(post=obj, user=request.user).exists()
         return False
     
-    def to_representation(self, instance):
+    def to_representation(self, instance) -> dict:
         data = super().to_representation(instance)
         logger.debug(f"Post {instance.id} serialized with like_count: {instance.like_count}, image_url: {data.get('image_url')}")
         return data
