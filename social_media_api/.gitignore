@@ -19,8 +19,6 @@ db.sqlite3
 
 # Media and static files
 /media/
-/staticfiles/
-/static/
 
 # OS files
 .DS_Store
