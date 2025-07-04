@@ -76,7 +76,9 @@ SECRET_KEY = 'django-insecure-o6=0tk99h&up3g65*4d2@o-_%@i*rf0w-#$%s+vnr*_^77#7a-
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DJANGO_DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = ['localhost','socialmedia-dun.vercel.app' ]
+ALLOWED_HOSTS = ['localhost','socialmedia-dun.vercel.app', '127.0.0.1' ]
+
+
 
 
 # Application definition
@@ -167,6 +169,24 @@ DATABASES = {
 }
 
 
+cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME')
+api_key = os.getenv('CLOUDINARY_API_KEY')
+api_secret = os.getenv('CLOUDINARY_API_SECRET')
+
+if cloud_name and api_key and api_secret:
+    cloudinary.config(
+        cloud_name=cloud_name,
+        api_key=api_key,
+        api_secret=api_secret
+    )
+else:
+    #  Warning added
+    print("⚠️ Warning: Cloudinary environment variables not set properly.")
+
+print("Cloud name:", os.getenv('CLOUDINARY_CLOUD_NAME'))  # For debugging on Vercel
+
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
@@ -197,15 +217,15 @@ USE_I18N = True
 
 USE_TZ = True
 
+# Static files (CSS, JavaScript, Images)
+STATIC_URL = '/static/'
+STATICFILES_DIRS = [BASE_DIR / 'static']  # Where custom static files are located
+STATIC_ROOT = BASE_DIR / 'staticfiles'    # Where collectstatic outputs files
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'  # Use WhiteNoise storage
 
+# Media files
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.2/howto/static-files/
-STATIC_URL = '/static/'
-STATICFILES_DIRS = [BASE_DIR / 'static']  # Where hero.png is located
-STATIC_ROOT = BASE_DIR / 'staticfiles'    # For collectstatic
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

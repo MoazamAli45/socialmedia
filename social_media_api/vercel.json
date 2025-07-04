@@ -2,13 +2,22 @@
   "builds": [
     {
       "src": "social_media_api/wsgi.py",
-      "use": "@vercel/python"
+      "use": "@vercel/python",
+      "config": { "maxLambdaSize": "50mb" }
     }
   ],
   "routes": [
     {
+      "src": "/static/(.*)",
+      "dest": "/social_media_api/wsgi.py"
+    },
+    {
       "src": "/(.*)",
       "dest": "social_media_api/wsgi.py"
     }
-  ]
+  ],
+  "env": {
+    "DJANGO_SETTINGS_MODULE": "social_media_api.settings",
+    "PYTHONUNBUFFERED": "1"
+  }
 }
