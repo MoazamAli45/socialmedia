@@ -76,7 +76,7 @@ SECRET_KEY = 'django-insecure-o6=0tk99h&up3g65*4d2@o-_%@i*rf0w-#$%s+vnr*_^77#7a-
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DJANGO_DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = ['localhost', ]
+ALLOWED_HOSTS = ['localhost','socialmedia-dun.vercel.app' ]
 
 
 # Application definition
