@@ -1,7 +1,7 @@
 {
   "builds": [
     {
-      "src": "ecommerce/wsgi.py",
+      "src": "social_media_api/wsgi.py",
       "use": "@vercel/python",
       "config": {
         "maxLambdaSize": "15mb"
@@ -11,7 +11,7 @@
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "ecommerce/wsgi.py"
+      "dest": "social_media_api/wsgi.py"
     }
   ],
   "env": {
