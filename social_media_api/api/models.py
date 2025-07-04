@@ -4,11 +4,13 @@ from django.contrib.auth.models import User
 import uuid
 from django.utils import timezone
 from datetime import timedelta
+from cloudinary.models import CloudinaryField # type: ignore
 
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     bio = models.TextField(max_length=500, blank=True)
-    profile_picture = models.ImageField(upload_to='profile_pics/', blank=True, null=True)
+    # profile_picture = models.ImageField(upload_to='profile_pics/', blank=True, null=True)
+    profile_picture = CloudinaryField('image', blank=True, null=True)
     birth_date = models.DateField(null=True, blank=True)
     location = models.CharField(max_length=100, blank=True)
     website = models.URLField(blank=True)
@@ -39,7 +41,7 @@ class PasswordReset(models.Model):
 class Post(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     content = models.TextField()
-    image = models.ImageField(upload_to='posts/', null=True, blank=True)
+    image = CloudinaryField('image', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     like_count = models.PositiveIntegerField(default=0)

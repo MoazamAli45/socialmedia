@@ -14,6 +14,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 import dj_database_url 
 import os
+import cloudinary # type: ignore
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -73,7 +74,7 @@ LOGGING = {
 }
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = ['*']
 
@@ -88,8 +89,9 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
-    'rest_framework.authtoken',  # Add this line
+    'rest_framework.authtoken',  
     'api.apps.ApiConfig',
+    'drf_yasg',
 ]
 
 #  REST Framework settings
@@ -135,6 +137,26 @@ TEMPLATES = [
         },
     },
 ]
+
+
+cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME')
+api_key = os.getenv('CLOUDINARY_API_KEY')
+api_secret = os.getenv('CLOUDINARY_API_SECRET')
+
+if cloud_name and api_key and api_secret:
+    cloudinary.config(
+        cloud_name=cloud_name,
+        api_key=api_key,
+        api_secret=api_secret
+    )
+else:
+    #  Warning added
+    print("⚠️ Warning: Cloudinary environment variables not set properly.")
+
+print("Cloud name:", os.getenv('CLOUDINARY_CLOUD_NAME'))  # For debugging on Vercel
+
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+
 
 
 # settings.py
