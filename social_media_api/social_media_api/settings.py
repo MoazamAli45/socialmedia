@@ -92,6 +92,8 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',  
     'api.apps.ApiConfig',
     'drf_yasg',
+    'cloudinary',
+    'cloudinary_storage',
 ]
 
 #  REST Framework settings
@@ -139,23 +141,6 @@ TEMPLATES = [
 ]
 
 
-cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME')
-api_key = os.getenv('CLOUDINARY_API_KEY')
-api_secret = os.getenv('CLOUDINARY_API_SECRET')
-
-if cloud_name and api_key and api_secret:
-    cloudinary.config(
-        cloud_name=cloud_name,
-        api_key=api_key,
-        api_secret=api_secret
-    )
-else:
-    #  Warning added
-    print("⚠️ Warning: Cloudinary environment variables not set properly.")
-
-print("Cloud name:", os.getenv('CLOUDINARY_CLOUD_NAME'))  # For debugging on Vercel
-
-DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
 
 
