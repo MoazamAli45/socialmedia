@@ -2,10 +2,7 @@
   "builds": [
     {
       "src": "social_media_api/wsgi.py",
-      "use": "@vercel/python",
-      "config": {
-        "maxLambdaSize": "15mb"
-      }
+      "use": "@vercel/python"
     }
   ],
   "routes": [
@@ -13,8 +10,5 @@
       "src": "/(.*)",
       "dest": "social_media_api/wsgi.py"
     }
-  ],
-  "env": {
-    "PYTHONPATH": "$PYTHONPATH:."
-  }
+  ]
 }
