@@ -217,6 +217,8 @@ class PostSerializer(serializers.ModelSerializer):
 class LikeSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     post = serializers.PrimaryKeyRelatedField(queryset=Post.objects.all(), required=True)
+
+    print ("POSTS TEST",post)
     
     class Meta:
         model = Like

@@ -54,8 +54,8 @@ class PostViewSet(viewsets.ModelViewSet):
             raise
     
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
-    def like(self, request, pk=None):
-        logger.debug(f"Like request for post {pk} by user: {request.user.username}")
+    def like(self, request, pk=None):  # pk is the post ID from the URL
+        logger.debug(f"Like request for post {pk} by user: {request.user.username} {request}")
         post = self.get_object()
         serializer = LikeSerializer(data={'post': post.id}, context={'request': request})
         if serializer.is_valid():
@@ -63,7 +63,7 @@ class PostViewSet(viewsets.ModelViewSet):
                 serializer.save(user=request.user)  # Triggers signal to increment like_count
                 logger.info(f"Post {pk} liked by {request.user.username}")
                 return Response(
-                    {"message": "Post liked successfully", "like_count": post.like_count},
+                    {"message": "Post liked successfully"},
                     status=status.HTTP_201_CREATED
                 )
             except Exception as e:
