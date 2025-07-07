@@ -9,7 +9,7 @@ from .models import Post, Comment, Follow , Like
 from .serializers import (
     PostSerializer, CommentSerializer, FollowSerializer, UserSerializer,
     PasswordResetSerializer, PasswordResetConfirmSerializer, 
-    PasswordChangeSerializer, ProfileUpdateSerializer , LikeSerializer
+    PasswordChangeSerializer, ProfileUpdateSerializer , LikeSerializer, PublicUserSerializer
 )
 from django.contrib.auth.models import User
 from django.core.mail import send_mail
@@ -224,14 +224,71 @@ class UserViewSet(viewsets.ModelViewSet):
             permission_classes = [IsAuthenticated]
         return [permission() for permission in permission_classes]
     
-    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+
+    #   FOR SPECIFIC USER PROFILE BY ID
+    # /users/profile?user=<id>
+    @action(detail=False, methods=['get'], permission_classes=[AllowAny])
     def profile(self, request) -> Response:
         """
-        Get current user's profile
+        Get a user's profile by ID passed as a query parameter.
+        Returns full profile for authenticated user if IDs match, otherwise public profile.
+        Endpoint: /users/profile?user=<id>
         """
-        logger.debug(f"Profile request for user: {request.user.username}")
-        serializer = self.get_serializer(request.user, context={'request': request})
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        logger.debug(f"Profile request with query params: {request.query_params}")
+        user_id = request.query_params.get('user')
+
+        if not user_id:
+            if request.user.is_authenticated:
+                user_id = request.user.id
+                logger.debug(f"No user ID provided, using authenticated user ID: {user_id}")
+            else:
+                logger.warning("No user ID provided in profile_by_id request and user is not authenticated")
+                return Response(
+                    {"error": "User ID is required as a query parameter"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            logger.warning(f"User with ID {user_id} not found")
+            return Response(
+                {"error": "User not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except ValueError:
+            logger.warning(f"Invalid user ID format: {user_id}")
+            return Response(
+                {"error": "Invalid user ID format"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            is_own_profile = request.user.is_authenticated and request.user.pk == user.pk
+            serializer_class = UserSerializer if is_own_profile else PublicUserSerializer
+            serializer = serializer_class(user, context={'request': request})
+            
+            logger.info(f"Profile retrieved for user ID {user_id} (own profile: {is_own_profile})")
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"Error retrieving profile for user ID {user_id}: {str(e)}")
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    
+    # /users/my_posts
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+    def my_posts(self, request) -> Response:
+        logger.debug(f"Fetching posts for authenticated user: {request.user.username}")
+        try:
+            posts = Post.objects.filter(user=request.user).order_by('-created_at')
+            print(f"Posts count for user {request.user.username}: {posts.count()}")
+            serializer = PostSerializer(posts, many=True, context={'request': request})
+            logger.info(f"Retrieved {posts.count()} posts for user: {request.user.username}")
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"Error retrieving posts for user {request.user.username}: {str(e)}")
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     
     @action(detail=False, methods=['put', 'patch'], permission_classes=[IsAuthenticated])
     def update_profile(self, request) -> Response:

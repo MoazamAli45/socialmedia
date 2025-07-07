@@ -37,6 +37,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
                 return None
         logger.debug("No profile picture provided, returning None for profile_picture_url")
         return None
+    
+
 
 class UserSerializer(serializers.ModelSerializer):
     profile = UserProfileSerializer(required=False, read_only=True)
@@ -150,6 +152,24 @@ class UserSerializer(serializers.ModelSerializer):
         except UserProfile.DoesNotExist:
             representation['profile'] = None
         return representation
+
+class PublicUserSerializer(UserSerializer):
+    """
+    Serializer for public user profiles, excluding sensitive fields like email.
+    """
+    class Meta(UserSerializer.Meta):
+        fields = ['id', 'username', 'first_name', 'last_name', 'profile']
+
+    def to_representation(self, instance: User) -> dict:
+        representation = super().to_representation(instance)
+        try:
+            profile = UserProfile.objects.get(user=instance)
+            representation['profile'] = UserProfileSerializer(profile, context=self.context).data
+        except UserProfile.DoesNotExist:
+            representation['profile'] = None
+        return representation
+
+
 
 class PasswordResetSerializer(serializers.Serializer):
     email = serializers.EmailField()
