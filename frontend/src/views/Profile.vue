@@ -1,138 +1,156 @@
 <template>
   <div class="min-h-screen bg-gray-50">
     <div class="max-w-4xl mx-auto py-8 px-4">
-      <!-- Profile Header -->
-      <div class="card p-8 mb-8">
-        <div
-          class="flex flex-col md:flex-row items-center md:items-start space-y-4 md:space-y-0 md:space-x-8"
-        >
-          <div class="relative">
-            <img
-              class="h-32 w-32 rounded-full object-cover"
-              :src="profileData?.profile?.profile_picture_url || '/placeholder.png'"
-              :alt="profileData?.username"
-              onerror="this.src='/placeholder.png'"
-            />
-            <button
-              v-if="isOwnProfile"
-              class="absolute bottom-0 right-0 bg-blue-600 text-white rounded-full p-2 hover:bg-blue-700"
-              @click="showImageUpload = true"
-            >
-              <CameraIcon class="h-4 w-4" />
-            </button>
-          </div>
-
-          <div class="flex-1 text-center md:text-left">
-            <h1 class="text-3xl font-bold text-gray-900">
-              {{ profileData?.first_name }} {{ profileData?.last_name }}
-            </h1>
-            <p class="text-gray-600">@{{ profileData?.username }}</p>
-
-            <div class="mt-4 flex justify-center md:justify-start space-x-8">
-              <div class="text-center">
-                <div class="text-2xl font-bold text-gray-900">{{ postCount }}</div>
-                <div class="text-sm text-gray-600">Posts</div>
-              </div>
-              <div class="text-center">
-                <div class="text-2xl font-bold text-gray-900">{{ followerCount }}</div>
-                <div class="text-sm text-gray-600">Followers</div>
-              </div>
-              <div class="text-center">
-                <div class="text-2xl font-bold text-gray-900">{{ followingCount }}</div>
-                <div class="text-sm text-gray-600">Following</div>
-              </div>
-            </div>
-
-            <div class="mt-4">
-              <p class="text-gray-700">{{ profileData?.profile?.bio }}</p>
-              <div class="mt-2 flex flex-wrap gap-4 text-sm text-gray-600">
-                <div v-if="profileData?.profile?.location" class="flex items-center">
-                  <MapPinIcon class="h-4 w-4 mr-1" />
-                  {{ profileData.profile.location }}
-                </div>
-                <div v-if="profileData?.profile?.website" class="flex items-center">
-                  <LinkIcon class="h-4 w-4 mr-1" />
-                  <a
-                    :href="profileData.profile.website"
-                    target="_blank"
-                    class="text-blue-600 hover:underline"
-                  >
-                    {{ profileData.profile.website }}
-                  </a>
-                </div>
-                <div v-if="profileData?.profile?.birth_date" class="flex items-center">
-                  <CalendarIcon class="h-4 w-4 mr-1" />
-                  Born {{ formatDate(profileData.profile.birth_date) }}
-                </div>
-              </div>
-            </div>
-
-            <div class="mt-6 flex justify-center md:justify-start space-x-4">
-              <button v-if="isOwnProfile" @click="$router.push('/settings')" class="btn-secondary">
-                Edit Profile
-              </button>
-              <button
-                v-else
-                @click="toggleFollow"
-                :class="[
-                  'px-6 py-2 rounded-lg font-medium transition-colors',
-                  isFollowing
-                    ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    : 'bg-blue-600 text-white hover:bg-blue-700',
-                ]"
-              >
-                {{ isFollowing ? 'Unfollow' : 'Follow' }}
-              </button>
-            </div>
-          </div>
-        </div>
+      <!-- Loading State -->
+      <div v-if="isLoading">
+        <ProfileSkeleton />
+        <PostCardSkeleton v-for="i in 3" :key="i" />
       </div>
 
-      <!-- Profile Posts -->
-      <div class="space-y-4">
-        <h2 class="text-xl font-bold text-gray-900">Posts</h2>
-        <div v-if="isLoading" class="flex justify-center py-12">
-          <Loading />
-        </div>
-        <div v-else-if="userPosts.length > 0" class="space-y-4">
-          <PostCard v-for="post in userPosts" :key="post.id" :post="post" />
-        </div>
+      <!-- Loaded State -->
+      <div v-else>
+        <!-- Profile Header -->
+        <div class="card p-8 mb-8">
+          <div
+            class="flex flex-col md:flex-row items-center md:items-start space-y-4 md:space-y-0 md:space-x-8"
+          >
+            <div class="relative">
+              <img
+                class="h-32 w-32 rounded-full object-cover"
+                :src="profileData?.profile?.profile_picture_url || '/placeholder.png'"
+                :alt="profileData?.username"
+                onerror="this.src='/placeholder.png'"
+              />
+            </div>
 
-        <div v-else class="text-center py-12">
-          <div class="text-gray-500">
-            <h3 class="text-lg font-medium mb-2">No posts yet</h3>
-            <p v-if="isOwnProfile">Share your first post!</p>
-            <p v-else>This user hasn't posted anything yet.</p>
+            <div class="flex-1 text-center md:text-left">
+              <h1 class="text-3xl font-bold text-gray-900">
+                {{ profileData?.first_name }} {{ profileData?.last_name }}
+              </h1>
+              <p class="text-gray-600">@{{ profileData?.username }}</p>
+
+              <div class="mt-4 flex justify-center md:justify-start space-x-8">
+                <div class="text-center">
+                  <div class="text-2xl font-bold text-gray-900">{{ postCount }}</div>
+                  <div class="text-sm text-gray-600">Posts</div>
+                </div>
+                <div class="text-center">
+                  <div class="text-2xl font-bold text-gray-900">{{ followerCount }}</div>
+                  <div class="text-sm text-gray-600">Followers</div>
+                </div>
+                <div class="text-center">
+                  <div class="text-2xl font-bold text-gray-900">{{ followingCount }}</div>
+                  <div class="text-sm text-gray-600">Following</div>
+                </div>
+              </div>
+
+              <div class="mt-4">
+                <p class="text-gray-700">{{ profileData?.profile?.bio }}</p>
+                <div
+                  class="mt-2 flex flex-wrap gap-4 text-sm text-gray-600 justify-center md:justify-start"
+                >
+                  <div v-if="profileData?.profile?.location" class="flex items-center">
+                    <MapPinIcon class="h-4 w-4 mr-1" />
+                    {{ profileData.profile.location }}
+                  </div>
+                  <div v-if="profileData?.profile?.website" class="flex items-center">
+                    <LinkIcon class="h-4 w-4 mr-1" />
+                    <a
+                      :href="profileData.profile.website"
+                      target="_blank"
+                      class="text-blue-600 hover:underline"
+                    >
+                      {{ profileData.profile.website }}
+                    </a>
+                  </div>
+                  <div v-if="profileData?.profile?.birth_date" class="flex items-center">
+                    <CalendarIcon class="h-4 w-4 mr-1" />
+                    Born {{ formatDate(profileData.profile.birth_date) }}
+                  </div>
+                </div>
+              </div>
+
+              <div class="mt-6 flex justify-center md:justify-start space-x-4">
+                <button
+                  v-if="isOwnProfile"
+                  @click="$router.push('/settings')"
+                  class="btn-secondary"
+                >
+                  Edit Profile
+                </button>
+                <button
+                  v-else
+                  @click="toggleFollow"
+                  :disabled="isFollowLoading"
+                  :class="[
+                    'px-6 py-2 rounded-lg font-medium transition-colors disabled:opacity-50',
+                    isFollowing
+                      ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      : 'bg-blue-600 text-white hover:bg-blue-700',
+                  ]"
+                >
+                  <span v-if="isFollowLoading">
+                    <svg
+                      class="animate-spin -ml-1 mr-3 h-5 w-5 text-current inline"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        class="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        stroke-width="4"
+                      ></circle>
+                      <path
+                        class="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                  </span>
+                  {{ isFollowing ? 'Unfollow' : 'Follow' }}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-    </div>
 
-    <!-- Image Upload Modal -->
-    <div
-      v-if="showImageUpload"
-      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-    >
-      <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-        <h3 class="text-lg font-semibold mb-4">Update Profile Picture</h3>
-        <input type="file" accept="image/*" @change="handleImageUpload" class="mb-4" />
-        <div class="flex justify-end space-x-4">
-          <button @click="showImageUpload = false" class="btn-secondary">Cancel</button>
-          <button @click="uploadImage" class="btn-primary">Upload</button>
+        <!-- Profile Posts -->
+        <div class="space-y-4">
+          <h2 class="text-xl font-bold text-gray-900">Posts</h2>
+
+          <!-- Posts Loaded State -->
+          <div v-if="userPosts.length > 0" class="space-y-4">
+            <PostCard v-for="post in userPosts" :key="post.id" :post="post" />
+          </div>
+
+          <!-- No Posts State -->
+          <div v-else class="text-center py-12">
+            <div class="text-gray-500">
+              <h3 class="text-lg font-medium mb-2">No posts yet</h3>
+              <p v-if="isOwnProfile">Share your first post!</p>
+              <p v-else>This user hasn't posted anything yet.</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   </div>
 </template>
+
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { CameraIcon, MapPinIcon, LinkIcon, CalendarIcon } from '@heroicons/vue/24/outline'
 import { useAuthStore } from '@/stores/auth'
 import PostCard from '@/components/PostCard.vue'
+import ProfileSkeleton from '@/components/ProfileSkeleton.vue'
 import api from '@/services/api'
 import { format } from 'date-fns'
-import Loading from '@/components/Loading.vue'
+import PostCardSkeleton from '@/components/PostCardSkeleton.vue'
 
 const route = useRoute()
 const authStore = useAuthStore()
@@ -146,28 +164,36 @@ const isFollowing = ref(false)
 const showImageUpload = ref(false)
 const selectedImage = ref(null)
 const isLoading = ref(false)
+const isFollowLoading = ref(false)
+const isUploading = ref(false)
 
 const isOwnProfile = computed(() => {
   const profileId = route.params.id
   return !profileId || profileId == authStore.user?.id
 })
+
 const fetchProfileData = async () => {
   try {
     isLoading.value = true
 
     const userId = route.params.id || authStore.user?.id
     console.log('Fetching profile for user ID:', userId)
+
+    // Set isOwnProfile correctly
+    isOwnProfile.value = userId === authStore.user?.id
+
     const [profileRes, postsRes, followersRes, followingRes] = await Promise.all([
       api.get(`/users/profile?user=${userId}`),
-      api.get(`/users/my_posts`),
-      api.get('/follows/followers'),
-      api.get('/follows/following'),
+      api.get(`/users/my_posts?user=${userId}`), // Updated to include userId
+      api.get(`/follows/followers?user=${userId}`), // Updated to include userId
+      api.get(`/follows/following?user=${userId}`), // Updated to include userId
     ])
+
     profileData.value = profileRes.data
     userPosts.value = postsRes.data
     postCount.value = postsRes.data.length
-    followerCount.value = followersRes.data.length
-    followingCount.value = followingRes.data.length
+    followerCount.value = followersRes.data.length || 0 // Ensure non-negative
+    followingCount.value = followingRes.data.length || 0 // Ensure non-negative
 
     console.log(
       'Profile data:',
@@ -178,9 +204,18 @@ const fetchProfileData = async () => {
       followerCount.value,
       'Following count:',
       followingCount.value,
+      'Followers response:',
+      followersRes.data,
+      'Following response:',
+      followingRes.data,
     )
+
     if (!isOwnProfile.value) {
-      isFollowing.value = followingRes.data.some((follow) => follow.followed === Number(userId))
+      // Check if the authenticated user is following the viewed user
+      const myFollowingRes = await api.get('/follows/following') // Fetch authenticated user's following list
+      isFollowing.value = myFollowingRes.data.some(
+        (follow) => follow.followed.id === Number(userId),
+      )
     }
   } catch (error) {
     console.error('Failed to fetch profile data:', error)
@@ -188,52 +223,28 @@ const fetchProfileData = async () => {
     isLoading.value = false
   }
 }
+
 const toggleFollow = async () => {
   try {
+    isFollowLoading.value = true
+    const userId = route.params.id
+
     if (isFollowing.value) {
       // Unfollow
-      const followingResponse = await api.get('/follows/following')
-      const followRecord = followingResponse.data.find(
-        (follow) => follow.followed === Number(route.params.id),
-      )
-      if (followRecord) {
-        await api.delete(`/follows/${followRecord.id}`)
-        isFollowing.value = false
-        followerCount.value--
-      }
+      await api.delete('/follows/unfollow', { data: { followed: userId } })
+      isFollowing.value = false
+      await fetchProfileData() // Refresh data to update follower count
     } else {
       // Follow
-      await api.post('/follows', { followed: route.params.id })
+      await api.post('/follows', { followed: userId })
       isFollowing.value = true
-      followerCount.value++
+      await fetchProfileData() // Refresh data to update follower count
     }
   } catch (error) {
     console.error('Failed to toggle follow:', error)
-  }
-}
-
-const handleImageUpload = (event) => {
-  selectedImage.value = event.target.files[0]
-}
-
-const uploadImage = async () => {
-  if (!selectedImage.value) return
-
-  try {
-    const formData = new FormData()
-    formData.append('profile_picture', selectedImage.value)
-
-    await api.patch(`/users/profile`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    })
-
-    showImageUpload.value = false
-    selectedImage.value = null
-    await fetchProfileData()
-  } catch (error) {
-    console.error('Failed to upload image:', error)
+    toast.error(isFollowing.value ? 'Failed to unfollow user' : 'Failed to follow user')
+  } finally {
+    isFollowLoading.value = false
   }
 }
 
@@ -243,3 +254,18 @@ const formatDate = (date) => {
 
 onMounted(fetchProfileData)
 </script>
+
+<style scoped>
+@reference "tailwindcss";
+.card {
+  @apply bg-white rounded-lg shadow-sm border border-gray-200;
+}
+
+.btn-primary {
+  @apply bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50;
+}
+
+.btn-secondary {
+  @apply bg-gray-200 text-gray-700 px-6 py-2 rounded-lg font-medium hover:bg-gray-300 transition-colors;
+}
+</style>

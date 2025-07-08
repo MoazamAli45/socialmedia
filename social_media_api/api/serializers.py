@@ -356,11 +356,14 @@ class CommentSerializer(serializers.ModelSerializer):
 
 class FollowSerializer(serializers.ModelSerializer):
     follower = UserSerializer(read_only=True)
-    followed = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), required=True)
- 
+    followed = PublicUserSerializer(read_only=True)  # Use PublicUserSerializer for followed user
+    followed_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(), source='followed', write_only=True
+    )
+
     class Meta:
         model = Follow
-        fields = ['id', 'follower', 'followed', 'created_at']
+        fields = ['id', 'follower', 'followed', 'followed_id', 'created_at']
     
     def validate(self, attrs):
         request = self.context.get('request')

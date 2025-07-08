@@ -179,24 +179,79 @@ class FollowViewSet(viewsets.ModelViewSet):
             logger.error(f"Error creating follow: {str(e)}")
             raise
     
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], permission_classes=[AllowAny])
     def followers(self, request):
-        logger.debug(f"Listing followers for user: {request.user.username}")
-        followers = Follow.objects.filter(followed=self.request.user)
-        logger.debug(f"Followers count: {followers.count()}")
+        logger.debug(f"Listing followers with query params: {request.query_params}")
+        user_id = request.query_params.get('user')
+        
+        if not user_id:
+            if request.user.is_authenticated:
+                user_id = request.user.id
+                logger.debug(f"No user ID provided, using authenticated user ID: {user_id}")
+            else:
+                logger.warning("No user ID provided and user is not authenticated")
+                return Response(
+                    {"error": "User ID is required as a query parameter"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        try:
+            target_user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            logger.warning(f"User with ID {user_id} not found")
+            return Response(
+                {"error": "User not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except ValueError:
+            logger.warning(f"Invalid user ID format: {user_id}")
+            return Response(
+                {"error": "Invalid user ID format"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        followers = Follow.objects.filter(followed=target_user)
+        logger.debug(f"Followers count for user ID {user_id}: {followers.count()}")
         serializer = self.get_serializer(followers, many=True)
         logger.debug(f"Followers serialized data: {serializer.data}")
         return Response(serializer.data, status=status.HTTP_200_OK)
     
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], permission_classes=[AllowAny])
     def following(self, request):
-        logger.debug(f"Listing following for user: {request.user.username}")
-        following = Follow.objects.filter(follower=self.request.user)
-        logger.debug(f"Following count: {following.count()}")
+        logger.debug(f"Listing following with query params: {request.query_params}")
+        user_id = request.query_params.get('user')
+        
+        if not user_id:
+            if request.user.is_authenticated:
+                user_id = request.user.id
+                logger.debug(f"No user ID provided, using authenticated user ID: {user_id}")
+            else:
+                logger.warning("No user ID provided and user is not authenticated")
+                return Response(
+                    {"error": "User ID is required as a query parameter"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        try:
+            target_user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            logger.warning(f"User with ID {user_id} not found")
+            return Response(
+                {"error": "User not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except ValueError:
+            logger.warning(f"Invalid user ID format: {user_id}")
+            return Response(
+                {"error": "Invalid user ID format"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        following = Follow.objects.filter(follower=target_user)
+        logger.debug(f"Following count for user ID {user_id}: {following.count()}")
         serializer = self.get_serializer(following, many=True)
         logger.debug(f"Following serialized data: {serializer.data}")
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
     @action(detail=False, methods=['delete'])
     def unfollow(self, request):
         followed_id = request.data.get('followed')
@@ -276,19 +331,43 @@ class UserViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
     
-    # /users/my_posts
-    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+    # /users/my_posts?user=<id>
+    @action(detail=False, methods=['get'], permission_classes=[AllowAny])
     def my_posts(self, request) -> Response:
-        logger.debug(f"Fetching posts for authenticated user: {request.user.username}")
-        try:
-            posts = Post.objects.filter(user=request.user).order_by('-created_at')
-            print(f"Posts count for user {request.user.username}: {posts.count()}")
+            logger.debug(f"Fetching posts with query params: {request.query_params}")
+            user_id = request.query_params.get('user')
+            
+            if not user_id:
+                if request.user.is_authenticated:
+                    user_id = request.user.id
+                    logger.debug(f"No user ID provided, using authenticated user ID: {user_id}")
+                else:
+                    logger.warning("No user ID provided and user is not authenticated")
+                    return Response(
+                        {"error": "User ID is required as a query parameter"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            
+            try:
+                target_user = User.objects.get(id=user_id)
+            except User.DoesNotExist:
+                logger.warning(f"User with ID {user_id} not found")
+                return Response(
+                    {"error": "User not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            except ValueError:
+                logger.warning(f"Invalid user ID format: {user_id}")
+                return Response(
+                    {"error": "Invalid user ID format"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            posts = Post.objects.filter(user=target_user).order_by('-created_at')
+            logger.debug(f"Posts count for user ID {user_id}: {posts.count()}")
             serializer = PostSerializer(posts, many=True, context={'request': request})
-            logger.info(f"Retrieved {posts.count()} posts for user: {request.user.username}")
+            logger.info(f"Retrieved {posts.count()} posts for user ID: {user_id}")
             return Response(serializer.data, status=status.HTTP_200_OK)
-        except Exception as e:
-            logger.error(f"Error retrieving posts for user {request.user.username}: {str(e)}")
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     
     @action(detail=False, methods=['put', 'patch'], permission_classes=[IsAuthenticated])
     def update_profile(self, request) -> Response:
