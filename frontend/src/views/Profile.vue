@@ -150,6 +150,7 @@ import PostCard from '@/components/PostCard.vue'
 import ProfileSkeleton from '@/components/ProfileSkeleton.vue'
 import api from '@/services/api'
 import { format } from 'date-fns'
+import { toast } from 'vue-sonner'
 import PostCardSkeleton from '@/components/PostCardSkeleton.vue'
 
 const route = useRoute()
@@ -161,11 +162,8 @@ const postCount = ref(0)
 const followerCount = ref(0)
 const followingCount = ref(0)
 const isFollowing = ref(false)
-const showImageUpload = ref(false)
-const selectedImage = ref(null)
 const isLoading = ref(false)
 const isFollowLoading = ref(false)
-const isUploading = ref(false)
 
 const isOwnProfile = computed(() => {
   const profileId = route.params.id
@@ -233,13 +231,17 @@ const toggleFollow = async () => {
       // Unfollow
       await api.delete('/follows/unfollow', { data: { followed: userId } })
       isFollowing.value = false
-      await fetchProfileData() // Refresh data to update follower count
+
+      await fetchProfileData() // Refresh profile data to update counts
     } else {
       // Follow
-      await api.post('/follows', { followed: userId })
+      await api.post('/follows', { followed_id: userId })
       isFollowing.value = true
-      await fetchProfileData() // Refresh data to update follower count
+
+      await fetchProfileData() // Refresh profile data to update counts
     }
+
+    toast.success(isFollowing.value ? 'Followed user successfully' : 'Unfollowed user successfully')
   } catch (error) {
     console.error('Failed to toggle follow:', error)
     toast.error(isFollowing.value ? 'Failed to unfollow user' : 'Failed to follow user')

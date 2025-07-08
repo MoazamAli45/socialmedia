@@ -60,6 +60,27 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  const requestPasswordReset = async (email) => {
+    try {
+      const response = await api.post('/password_reset', { email })
+      console.log('Password reset email sent:', response.data)
+      return response.data
+    } catch (error) {
+      throw new Error(error.response?.data?.error || 'Failed to send reset email')
+    }
+  }
+  const confirmPasswordReset = async (token, newPassword) => {
+    try {
+      const response = await api.post('/password_reset_confirm', {
+        token,
+        new_password: newPassword,
+      })
+      return response.data
+    } catch (error) {
+      throw new Error(error.response?.data?.error || 'Failed to reset password')
+    }
+  }
+
   const logout = () => {
     token.value = null
     user.value = null
@@ -109,5 +130,7 @@ export const useAuthStore = defineStore('auth', () => {
     signup,
     logout,
     fetchUser,
+    requestPasswordReset,
+    confirmPasswordReset,
   }
 })

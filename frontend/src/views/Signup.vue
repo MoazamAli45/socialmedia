@@ -140,6 +140,7 @@
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { toast } from 'vue-sonner'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -175,9 +176,8 @@ const handleSubmit = async () => {
     password: form.password,
   })
 
-  console.log(result, 'Signup result')
-
   if (result.success) {
+    toast.success('Account created successfully! Please log in.')
     router.push('/')
   } else {
     errors.value = { general: result.error }

@@ -53,12 +53,45 @@ export const usePostsStore = defineStore('posts', () => {
     }
   }
 
+  const updatePost = async (postId, updatedContent) => {
+    try {
+      const res = await api.patch(`/posts/${postId}`, { content: updatedContent })
+      const post = posts.value.find((p) => p.id === postId)
+      if (post) {
+        post.content = res.data.content
+      }
+      return { success: true }
+    } catch (error) {
+      console.error('Failed to update Post', error)
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Failed to update post',
+      }
+    }
+  }
+
+  const deletePost = async (postId) => {
+    try {
+      await api.delete(`/posts/${postId}`)
+      posts.value = posts.value.filter((p) => p.id !== postId)
+      return { success: true }
+    } catch (error) {
+      console.error('Failed to delete Post', error)
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Failed to delete post',
+      }
+    }
+  }
+
   const likePost = async (postId) => {
     try {
       const response = await api.post(`/posts/${postId}/like`)
       const post = posts.value.find((p) => p.id === postId)
       if (post) {
-        post.like_count = response.data.like_count
+        // Ensure like_count is a number and handle potential NaN
+        const newLikeCount = Number(response.data.like_count)
+        post.like_count = isNaN(newLikeCount) ? (post.like_count || 0) + 1 : newLikeCount
         post.is_liked = true
       }
       return { success: true }
@@ -76,7 +109,11 @@ export const usePostsStore = defineStore('posts', () => {
       const response = await api.delete(`/posts/${postId}/unlike`)
       const post = posts.value.find((p) => p.id === postId)
       if (post) {
-        post.like_count = response.data.like_count
+        // Ensure like_count is a number and handle potential NaN
+        const newLikeCount = Number(response.data.like_count)
+        post.like_count = isNaN(newLikeCount)
+          ? Math.max((post.like_count || 1) - 1, 0)
+          : newLikeCount
         post.is_liked = false
       }
       return { success: true }
@@ -86,6 +123,15 @@ export const usePostsStore = defineStore('posts', () => {
         success: false,
         error: error.response?.data?.message || 'Failed to unlike post',
       }
+    }
+  }
+
+  const updatePostCommentCount = (postId, increment = 1) => {
+    const post = posts.value.find((p) => p.id === postId)
+    if (post) {
+      // Ensure comment_count is a number and handle potential NaN
+      const currentCount = Number(post.comment_count) || 0
+      post.comment_count = Math.max(currentCount + increment, 0)
     }
   }
 
@@ -102,6 +148,9 @@ export const usePostsStore = defineStore('posts', () => {
     createPost,
     likePost,
     unlikePost,
+    updatePostCommentCount,
+    updatePost,
     loadMore,
+    deletePost,
   }
 })

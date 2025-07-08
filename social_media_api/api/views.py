@@ -12,6 +12,7 @@ from .serializers import (
     PasswordChangeSerializer, ProfileUpdateSerializer , LikeSerializer, PublicUserSerializer
 )
 from django.contrib.auth.models import User
+from django.db.models import Count
 from django.core.mail import send_mail
 from django.conf import settings
 from rest_framework import status
@@ -33,6 +34,12 @@ def get_validated_data(serializer) :
 class PostViewSet(viewsets.ModelViewSet):
     queryset = Post.objects.all().order_by('-created_at')
     serializer_class = PostSerializer
+
+    def get_queryset(self):
+        """
+        Annotate the queryset with the count of comments for each post.
+        """
+        return Post.objects.all().annotate(comment_count=Count('comments')).order_by('-created_at')
     
     def list(self, request, *args, **kwargs):
         logger.debug(f"Listing posts for user: {request.user.username if request.user.is_authenticated else 'Anonymous'}")
@@ -96,7 +103,7 @@ class PostViewSet(viewsets.ModelViewSet):
         except Exception as e:
             logger.error(f"Error unliking post {pk}: {str(e)}")
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        
+
 class CommentViewSet(viewsets.ModelViewSet):
     queryset = Comment.objects.all().order_by('-created_at')
     serializer_class = CommentSerializer
@@ -111,7 +118,14 @@ class CommentViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             self.perform_create(serializer)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            # Fetch the updated post with comment_count
+            post = Post.objects.filter(id=serializer.validated_data['post'].id).annotate(comment_count=Count('comments')).first()
+            post_serializer = PostSerializer(post, context={'request': request})
+            logger.info(f"Comment created successfully for post ID: {post.id}, new comment_count: {post.comment_count}")
+            return Response({
+                'comment': serializer.data,
+                'post': post_serializer.data
+            }, status=status.HTTP_201_CREATED)
         logger.warning(f"Invalid comment data: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
@@ -124,7 +138,25 @@ class CommentViewSet(viewsets.ModelViewSet):
         except Exception as e:
             logger.error(f"Error creating comment: {str(e)}")
             raise
-
+    
+    @action(detail=False, methods=['get'], url_path='post/(?P<post_id>\d+)') # type: ignore
+    def get_comments_by_post(self, request, post_id=None):
+        """
+        Fetch all comments for a specific post, ordered by creation time (newest first).
+        """
+        try:
+            logger.debug(f"Fetching comments for post ID: {post_id}")
+            comments = Comment.objects.filter(post_id=post_id).order_by('-created_at')
+            if not comments.exists():
+                logger.info(f"No comments found for post ID: {post_id}")
+                return Response({"detail": "No comments found for this post."}, status=status.HTTP_200_OK)
+            
+            serializer = self.get_serializer(comments, many=True)
+            logger.info(f"Successfully fetched {len(serializer.data)} comments for post ID: {post_id}")
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"Error fetching comments for post ID: {post_id}, error: {str(e)}")
+            return Response({"detail": "An error occurred while fetching comments."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class FollowViewSet(viewsets.ModelViewSet):
     queryset = Follow.objects.all()
@@ -363,7 +395,7 @@ class UserViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            posts = Post.objects.filter(user=target_user).order_by('-created_at')
+            posts = Post.objects.filter(user=target_user).annotate(comment_count=Count('comments')).order_by('-created_at')
             logger.debug(f"Posts count for user ID {user_id}: {posts.count()}")
             serializer = PostSerializer(posts, many=True, context={'request': request})
             logger.info(f"Retrieved {posts.count()} posts for user ID: {user_id}")

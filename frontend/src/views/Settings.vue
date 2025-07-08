@@ -11,8 +11,9 @@
             <div class="flex items-center space-x-4">
               <img
                 class="h-16 w-16 rounded-full object-cover"
-                :src="form.profile_picture_url || '/default-avatar.png'"
+                :src="form.profile_picture_url || '/placeholder.png'"
                 :alt="user?.username"
+                onerror="this.src='/placeholder.png'"
               />
               <div>
                 <input

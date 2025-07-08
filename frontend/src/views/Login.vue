@@ -59,7 +59,7 @@
             </div>
 
             <div class="text-sm">
-              <a href="#" class="font-medium text-blue-600 hover:text-blue-500">
+              <a href="/forgot-password" class="font-medium text-blue-600 hover:text-blue-500">
                 Forgot your password?
               </a>
             </div>
@@ -84,6 +84,7 @@
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { toast } from 'vue-sonner'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -106,12 +107,12 @@ const handleSubmit = async () => {
     password: form.password,
   })
 
-  console.log(result, 'Login result')
-
   if (result.success) {
+    toast.success('Login successful!')
     router.push('/')
   } else {
     errors.value = { general: result.error }
+    toast.error(result.error || 'Login failed. Please try again.')
   }
 
   isLoading.value = false

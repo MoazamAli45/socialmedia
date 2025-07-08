@@ -251,10 +251,12 @@ class PostSerializer(serializers.ModelSerializer):
     image_url = serializers.SerializerMethodField()
     like_count = serializers.IntegerField(read_only=True)
     is_liked = serializers.SerializerMethodField()
+    comment_count = serializers.IntegerField(read_only=True)  # New field for comment count
+
     
     class Meta:
         model = Post
-        fields = ['id', 'user', 'content', 'image', 'image_url', 'created_at', 'updated_at', 'like_count', 'is_liked']
+        fields = ['id', 'user', 'content', 'image', 'image_url', 'created_at', 'updated_at', 'like_count', 'is_liked', 'comment_count']
     
     def create(self, validated_data):
         image = validated_data.pop('image', None)

@@ -144,17 +144,17 @@ TEMPLATES = [
 
 
 
-
+load_dotenv()
 
 # settings.py
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'  # Example: Gmail SMTP
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'syedmoazamali4321@gmail.com'
-EMAIL_HOST_PASSWORD = 'omgwdwgcyjxvnetq'  # Use an App Password for Gmail
-DEFAULT_FROM_EMAIL = 'syedmoazamali4321@gmail.com'
-FRONTEND_URL = 'http://localhost:8000'  # Adjust to your frontend URL
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', 'syedmoazamali4321@gmail.com')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')  # Use an App Password for Gmail
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'syedmoazamali4321@gmail.com')
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:8000')  # Adjust to your frontend URL
 
 WSGI_APPLICATION = 'social_media_api.wsgi.application'
 
@@ -162,7 +162,7 @@ WSGI_APPLICATION = 'social_media_api.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-load_dotenv()
+
 #  # NEON POSTGRESQL DATABASE CONFIGURATION
 DATABASES = {
  'default': dj_database_url.parse(os.getenv('DATABASE_URL', ''))
