@@ -117,7 +117,11 @@ const saveEdit = async () => {
 
   try {
     isSaving.value = true
-    const result = await commentsStore.updateComment(props.comment.id, editContent.value.trim())
+    const result = await commentsStore.updateComment(
+      props.postId,
+      props.comment.id,
+      editContent.value.trim(),
+    )
 
     if (result.success) {
       isEditing.value = false

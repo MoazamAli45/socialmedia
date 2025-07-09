@@ -305,8 +305,8 @@ const addComment = async () => {
 
     if (result.success) {
       newComment.value = ''
-      await postsStore.fetchPosts()
       toast.success('Comment added successfully')
+      await postsStore.fetchPosts()
     } else {
       toast.error(result.error)
     }

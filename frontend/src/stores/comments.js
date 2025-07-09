@@ -60,7 +60,8 @@ export const useCommentsStore = defineStore('comments', () => {
 
   const updateComment = async (postId, commentId, content) => {
     try {
-      const response = await api.patch(`/comments/${commentId}`, { content })
+      console.log('Updating comment:', { postId, commentId, content })
+      const response = await api.patch(`/comments/${commentId}`, { content, post: postId })
 
       const index = comments.value[postId]?.findIndex((c) => c.id === commentId)
       if (index !== -1) {
