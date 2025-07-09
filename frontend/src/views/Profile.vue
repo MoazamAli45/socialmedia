@@ -1,16 +1,13 @@
 <template>
   <div class="min-h-screen bg-gray-50">
     <div class="max-w-4xl mx-auto py-8 px-4">
-      <!-- Loading State -->
-      <div v-if="isLoading">
-        <ProfileSkeleton />
-        <PostCardSkeleton v-for="i in 3" :key="i" />
-      </div>
-
       <!-- Loaded State -->
-      <div v-else>
+      <div>
+        <div v-if="isLoading">
+          <ProfileSkeleton />
+        </div>
         <!-- Profile Header -->
-        <div class="card p-8 mb-8">
+        <div v-else class="card p-8 mb-8">
           <div
             class="flex flex-col md:flex-row items-center md:items-start space-y-4 md:space-y-0 md:space-x-8"
           >
@@ -117,9 +114,12 @@
             </div>
           </div>
         </div>
-
+        <!--   POSTS Skeleton -->
+        <div v-if="isLoadingPosts" class="space-y-4">
+          <PostCardSkeleton v-for="i in 3" :key="i" />
+        </div>
         <!-- Profile Posts -->
-        <div class="space-y-4">
+        <div v-else class="space-y-4">
           <h2 class="text-xl font-bold text-gray-900">Posts</h2>
 
           <div v-if="postsStore.posts.length > 0" class="space-y-4">
@@ -163,29 +163,24 @@ const followingCount = ref(0)
 const isFollowing = ref(false)
 const isLoading = ref(false)
 const isFollowLoading = ref(false)
+const isLoadingPosts = ref(false)
 
 const isOwnProfile = computed(() => {
   const profileId = route.params.id
   return !profileId || profileId == authStore.user?.id
 })
+const userId = route.params.id || authStore.user?.id
 
 const fetchProfileData = async () => {
   try {
     isLoading.value = true
-    const userId = route.params.id || authStore.user?.id
 
-    const [profileRes, followersRes, followingRes] = await Promise.all([
-      api.get(`/users/profile?user=${userId}`),
-      api.get(`/follows/followers?user=${userId}`),
-      api.get(`/follows/following?user=${userId}`),
-    ])
+    const profileRes = await api.get(`/users/profile?user=${userId}`)
 
+    console.log('Profile Data:', profileRes.data)
     profileData.value = profileRes.data
-    followerCount.value = followersRes.data.length || 0
-    followingCount.value = followingRes.data.length || 0
-
-    await postsStore.fetchUserPosts(userId)
-    postCount.value = postsStore.posts.length
+    followerCount.value = profileRes?.data?.followers_count || 0
+    followingCount.value = profileRes?.data?.following_count || 0
 
     if (!isOwnProfile.value) {
       const myFollowingRes = await api.get('/follows/following')
@@ -198,6 +193,19 @@ const fetchProfileData = async () => {
     toast.error('Failed to load profile')
   } finally {
     isLoading.value = false
+  }
+}
+
+const fetchPostData = async () => {
+  try {
+    isLoadingPosts.value = true
+    await postsStore.fetchUserPosts(userId)
+    postCount.value = postsStore.posts.length
+  } catch (error) {
+    console.error('Failed to fetch posts:', error)
+    toast.error('Failed to load posts')
+  } finally {
+    isLoadingPosts.value = false
   }
 }
 
@@ -228,7 +236,10 @@ const formatDate = (date) => {
   return format(new Date(date), 'MMMM d, yyyy')
 }
 
-onMounted(fetchProfileData)
+onMounted(() => {
+  fetchProfileData()
+  fetchPostData()
+})
 </script>
 
 <style scoped>

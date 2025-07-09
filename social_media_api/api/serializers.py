@@ -47,13 +47,32 @@ class UserSerializer(serializers.ModelSerializer):
     location = serializers.CharField(write_only=True, required=False, allow_blank=True)
     website = serializers.URLField(write_only=True, required=False, allow_blank=True)
     birth_date = serializers.DateField(write_only=True, required=False, allow_null=True)
+    followers_count = serializers.SerializerMethodField()
+    following_count = serializers.SerializerMethodField()
+    is_following = serializers.SerializerMethodField()
     
     class Meta:
         model = User
         fields = ['id', 'username', 'email', 'first_name', 'last_name', 'profile', 
-                 'profile_picture', 'bio', 'location', 'website', 'birth_date']
+                 'profile_picture', 'bio', 'location', 'website', 'birth_date','followers_count', 'following_count',  'is_following']
         extra_kwargs = {'password': {'write_only': True}}
-    
+
+    def get_followers_count(self, obj):
+        return obj.followers.count()  # Adjust based on your model
+
+    def get_following_count(self, obj):
+        return obj.following.count()
+
+    def get_is_following(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            # Don't include is_following when viewing own profile
+            if obj.id == request.user.id:
+                return None  # or return False if you want to keep it consistent
+            return obj.followers.filter(id=request.user.id).exists()
+        return False
+
+
     def create(self, validated_data) -> User:
         profile_picture = validated_data.pop('profile_picture', None)
         bio = validated_data.pop('bio', '')
@@ -158,7 +177,7 @@ class PublicUserSerializer(UserSerializer):
     Serializer for public user profiles, excluding sensitive fields like email.
     """
     class Meta(UserSerializer.Meta):
-        fields = ['id', 'username', 'first_name', 'last_name', 'profile']
+        fields = ['id', 'username', 'first_name', 'last_name', 'profile',"followers_count", 'following_count',  'is_following']
 
     def to_representation(self, instance: User) -> dict:
         representation = super().to_representation(instance)
