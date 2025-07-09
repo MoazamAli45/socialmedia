@@ -29,6 +29,21 @@ export const usePostsStore = defineStore('posts', () => {
     }
   }
 
+  const fetchUserPosts = async (userId) => {
+    isLoading.value = true
+    try {
+      const response = await api.get(`/users/my_posts?user=${userId}`)
+      posts.value = response.data // Replace or append based on your needs
+      hasMore.value = false // Adjust if pagination is needed
+      return { success: true, data: response.data }
+    } catch (error) {
+      console.error('Error fetching user posts:', error)
+      return { success: false, error: 'Failed to fetch user posts' }
+    } finally {
+      isLoading.value = false
+    }
+  }
+
   const createPost = async (postData) => {
     try {
       const formData = new FormData()
@@ -83,15 +98,17 @@ export const usePostsStore = defineStore('posts', () => {
       }
     }
   }
-
   const likePost = async (postId) => {
     try {
       const response = await api.post(`/posts/${postId}/like`)
       const post = posts.value.find((p) => p.id === postId)
       if (post) {
-        // Ensure like_count is a number and handle potential NaN
-        const newLikeCount = Number(response.data.like_count)
-        post.like_count = isNaN(newLikeCount) ? (post.like_count || 0) + 1 : newLikeCount
+        // Only update the server response data, don't increment count
+        // since optimistic UI already handled it
+        const serverLikeCount = Number(response.data.like_count)
+        if (!isNaN(serverLikeCount)) {
+          post.like_count = serverLikeCount
+        }
         post.is_liked = true
       }
       return { success: true }
@@ -109,11 +126,12 @@ export const usePostsStore = defineStore('posts', () => {
       const response = await api.delete(`/posts/${postId}/unlike`)
       const post = posts.value.find((p) => p.id === postId)
       if (post) {
-        // Ensure like_count is a number and handle potential NaN
-        const newLikeCount = Number(response.data.like_count)
-        post.like_count = isNaN(newLikeCount)
-          ? Math.max((post.like_count || 1) - 1, 0)
-          : newLikeCount
+        // Only update the server response data, don't decrement count
+        // since optimistic UI already handled it
+        const serverLikeCount = Number(response.data.like_count)
+        if (!isNaN(serverLikeCount)) {
+          post.like_count = serverLikeCount
+        }
         post.is_liked = false
       }
       return { success: true }
@@ -125,7 +143,6 @@ export const usePostsStore = defineStore('posts', () => {
       }
     }
   }
-
   const updatePostCommentCount = (postId, increment = 1) => {
     const post = posts.value.find((p) => p.id === postId)
     if (post) {
@@ -145,6 +162,7 @@ export const usePostsStore = defineStore('posts', () => {
     isLoading,
     hasMore,
     fetchPosts,
+    fetchUserPosts,
     createPost,
     likePost,
     unlikePost,

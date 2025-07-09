@@ -122,12 +122,10 @@
         <div class="space-y-4">
           <h2 class="text-xl font-bold text-gray-900">Posts</h2>
 
-          <!-- Posts Loaded State -->
-          <div v-if="userPosts.length > 0" class="space-y-4">
-            <PostCard v-for="post in userPosts" :key="post.id" :post="post" />
+          <div v-if="postsStore.posts.length > 0" class="space-y-4">
+            <PostCard v-for="post in postsStore.posts" :key="post.id" :post="post" />
           </div>
 
-          <!-- No Posts State -->
           <div v-else class="text-center py-12">
             <div class="text-gray-500">
               <h3 class="text-lg font-medium mb-2">No posts yet</h3>
@@ -144,20 +142,21 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { CameraIcon, MapPinIcon, LinkIcon, CalendarIcon } from '@heroicons/vue/24/outline'
+import { MapPinIcon, LinkIcon, CalendarIcon } from '@heroicons/vue/24/outline'
 import { useAuthStore } from '@/stores/auth'
 import PostCard from '@/components/PostCard.vue'
 import ProfileSkeleton from '@/components/ProfileSkeleton.vue'
+import PostCardSkeleton from '@/components/PostCardSkeleton.vue'
 import api from '@/services/api'
 import { format } from 'date-fns'
 import { toast } from 'vue-sonner'
-import PostCardSkeleton from '@/components/PostCardSkeleton.vue'
+import { usePostsStore } from '@/stores/posts'
 
 const route = useRoute()
 const authStore = useAuthStore()
+const postsStore = usePostsStore()
 
 const profileData = ref(null)
-const userPosts = ref([])
 const postCount = ref(0)
 const followerCount = ref(0)
 const followingCount = ref(0)
@@ -173,50 +172,30 @@ const isOwnProfile = computed(() => {
 const fetchProfileData = async () => {
   try {
     isLoading.value = true
-
     const userId = route.params.id || authStore.user?.id
-    console.log('Fetching profile for user ID:', userId)
 
-    // Set isOwnProfile correctly
-    isOwnProfile.value = userId === authStore.user?.id
-
-    const [profileRes, postsRes, followersRes, followingRes] = await Promise.all([
+    const [profileRes, followersRes, followingRes] = await Promise.all([
       api.get(`/users/profile?user=${userId}`),
-      api.get(`/users/my_posts?user=${userId}`), // Updated to include userId
-      api.get(`/follows/followers?user=${userId}`), // Updated to include userId
-      api.get(`/follows/following?user=${userId}`), // Updated to include userId
+      api.get(`/follows/followers?user=${userId}`),
+      api.get(`/follows/following?user=${userId}`),
     ])
 
     profileData.value = profileRes.data
-    userPosts.value = postsRes.data
-    postCount.value = postsRes.data.length
-    followerCount.value = followersRes.data.length || 0 // Ensure non-negative
-    followingCount.value = followingRes.data.length || 0 // Ensure non-negative
+    followerCount.value = followersRes.data.length || 0
+    followingCount.value = followingRes.data.length || 0
 
-    console.log(
-      'Profile data:',
-      profileData.value,
-      'User posts:',
-      userPosts.value,
-      'Follower count:',
-      followerCount.value,
-      'Following count:',
-      followingCount.value,
-      'Followers response:',
-      followersRes.data,
-      'Following response:',
-      followingRes.data,
-    )
+    await postsStore.fetchUserPosts(userId)
+    postCount.value = postsStore.posts.length
 
     if (!isOwnProfile.value) {
-      // Check if the authenticated user is following the viewed user
-      const myFollowingRes = await api.get('/follows/following') // Fetch authenticated user's following list
+      const myFollowingRes = await api.get('/follows/following')
       isFollowing.value = myFollowingRes.data.some(
         (follow) => follow.followed.id === Number(userId),
       )
     }
   } catch (error) {
     console.error('Failed to fetch profile data:', error)
+    toast.error('Failed to load profile')
   } finally {
     isLoading.value = false
   }
@@ -228,19 +207,14 @@ const toggleFollow = async () => {
     const userId = route.params.id
 
     if (isFollowing.value) {
-      // Unfollow
       await api.delete('/follows/unfollow', { data: { followed: userId } })
       isFollowing.value = false
-
-      await fetchProfileData() // Refresh profile data to update counts
     } else {
-      // Follow
       await api.post('/follows', { followed_id: userId })
       isFollowing.value = true
-
-      await fetchProfileData() // Refresh profile data to update counts
     }
 
+    await fetchProfileData()
     toast.success(isFollowing.value ? 'Followed user successfully' : 'Unfollowed user successfully')
   } catch (error) {
     console.error('Failed to toggle follow:', error)

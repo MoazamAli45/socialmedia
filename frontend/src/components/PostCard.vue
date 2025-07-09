@@ -225,13 +225,20 @@ const toggleLike = async () => {
     return
   }
 
-  const wasLiked = props.post.is_liked
-  const originalCount = safeNumber(props.post.like_count)
+  // Get the current state from the store's post data
+  const currentPost = postData.value
+  const wasLiked = currentPost.is_liked
+  const originalCount = safeNumber(currentPost.like_count)
 
   isLiking.value = true
   error.value = null
-  props.post.is_liked = !wasLiked
-  props.post.like_count = wasLiked ? originalCount - 1 : originalCount + 1
+
+  // Find the post in the store and update it optimistically
+  const storePost = postsStore.posts.find((p) => p.id === props.post.id)
+  if (storePost) {
+    storePost.is_liked = !wasLiked
+    storePost.like_count = wasLiked ? originalCount - 1 : originalCount + 1
+  }
 
   try {
     const result = wasLiked
@@ -239,14 +246,20 @@ const toggleLike = async () => {
       : await postsStore.likePost(props.post.id)
 
     if (!result.success) {
-      props.post.is_liked = wasLiked
-      props.post.like_count = originalCount
+      // Revert the optimistic update if the API call failed
+      if (storePost) {
+        storePost.is_liked = wasLiked
+        storePost.like_count = originalCount
+      }
       error.value = result.error || 'Failed to update like'
       toast.error(error.value)
     }
   } catch (error) {
-    props.post.is_liked = wasLiked
-    props.post.like_count = originalCount
+    // Revert the optimistic update if an error occurred
+    if (storePost) {
+      storePost.is_liked = wasLiked
+      storePost.like_count = originalCount
+    }
     error.value = 'An unexpected error occurred'
     toast.error(error.value)
     console.error('Toggle like error:', error)
