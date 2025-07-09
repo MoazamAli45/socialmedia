@@ -275,7 +275,7 @@ const toggleComments = async () => {
   if (showComments.value && !commentsStore.comments[props.post.id]) {
     await loadComments()
   } else if (!showComments.value) {
-    commentsStore.clearComments(post.id) // Optional
+    commentsStore.clearComments(props.post.id) // Optional
   }
 }
 
