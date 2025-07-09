@@ -177,7 +177,7 @@ const handleSubmit = async () => {
   })
 
   if (result.success) {
-    toast.success('Account created successfully! Please log in.')
+    toast.success('Account created successfully! ')
     router.push('/')
   } else {
     errors.value = { general: result.error }
