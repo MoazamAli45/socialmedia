@@ -4,16 +4,16 @@ import api from '@/services/api'
 import { usePostsStore } from './posts'
 
 export const useCommentsStore = defineStore('comments', () => {
-  const comments = ref([])
-  const isLoading = ref(false)
+  const comments = ref({}) // Store comments per postId
+  const isLoading = ref({}) // Store loading state per postId
   const isCreating = ref(false)
   const isDeleting = ref(false)
 
   const fetchComments = async (postId) => {
     try {
-      isLoading.value = true
+      isLoading.value[postId] = true
       const response = await api.get(`/comments/post/${postId}`)
-      comments.value = response.data
+      comments.value[postId] = response.data || []
       return { success: true, data: response.data }
     } catch (error) {
       console.error('Failed to fetch comments:', error.response?.data)
@@ -22,7 +22,7 @@ export const useCommentsStore = defineStore('comments', () => {
         error: error.response?.data?.message || 'Failed to fetch comments',
       }
     } finally {
-      isLoading.value = false
+      isLoading.value[postId] = false
     }
   }
 
@@ -34,20 +34,18 @@ export const useCommentsStore = defineStore('comments', () => {
         post: postId,
       })
 
-      console.log('Comment created:', response.data)
-
-      // Add the new comment to the beginning of the array
-      if (!Array.isArray(comments.value)) {
-        comments.value = []
+      if (!comments.value[postId]) {
+        comments.value[postId] = []
       }
-      comments.value.unshift(response?.data?.comment)
-      // Update post's comment_count in PostsStore
+      comments.value[postId].unshift(response?.data?.comment)
+
+      // Update comment count in postsStore
       const postsStore = usePostsStore()
       const post = postsStore.posts.find((p) => p.id === postId)
-      console.log('Post found in PostsStore:', post)
       if (post && response.data.post) {
         post.comment_count = response.data.post.comment_count
       }
+
       return { success: true, comment: response?.data?.comment || {} }
     } catch (error) {
       console.error('Failed to create comment:', error)
@@ -60,14 +58,13 @@ export const useCommentsStore = defineStore('comments', () => {
     }
   }
 
-  const updateComment = async (commentId, content) => {
+  const updateComment = async (postId, commentId, content) => {
     try {
       const response = await api.patch(`/comments/${commentId}`, { content })
 
-      // Update the comment in the array
-      const index = comments.value.findIndex((c) => c.id === commentId)
+      const index = comments.value[postId]?.findIndex((c) => c.id === commentId)
       if (index !== -1) {
-        comments.value[index] = response.data
+        comments.value[postId][index] = response.data
       }
 
       return { success: true, data: response.data }
@@ -80,13 +77,11 @@ export const useCommentsStore = defineStore('comments', () => {
     }
   }
 
-  const deleteComment = async (commentId) => {
+  const deleteComment = async (postId, commentId) => {
     try {
       isDeleting.value = true
       await api.delete(`/comments/${commentId}`)
-
-      // Remove the comment from the array
-      comments.value = comments.value.filter((c) => c.id !== commentId)
+      comments.value[postId] = comments.value[postId].filter((c) => c.id !== commentId)
       return { success: true }
     } catch (error) {
       console.error('Failed to delete comment:', error)
@@ -99,8 +94,12 @@ export const useCommentsStore = defineStore('comments', () => {
     }
   }
 
-  const clearComments = () => {
-    comments.value = []
+  const clearComments = (postId) => {
+    if (postId) {
+      delete comments.value[postId]
+    } else {
+      comments.value = {}
+    }
   }
 
   return {

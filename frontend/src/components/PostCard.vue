@@ -143,13 +143,14 @@
 
       <!-- Comments List -->
       <div class="mt-4">
-        <div v-if="commentsStore.isLoading" class="flex justify-center py-4">
-          <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+        <!-- Skeleton Placeholder -->
+        <div v-if="commentsStore.isLoading[post.id]" class="space-y-2 pt-4">
+          <CommentSkeleton v-for="n in 3" :key="n" />
         </div>
 
-        <div v-else-if="commentsStore.comments.length > 0" class="space-y-1">
+        <div v-else-if="commentsStore.comments[post.id]?.length > 0" class="space-y-1">
           <CommentItem
-            v-for="comment in commentsStore.comments"
+            v-for="comment in commentsStore.comments[post.id]"
             :key="comment.id"
             :comment="comment"
             :post-id="post.id"
@@ -179,6 +180,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { toast } from 'vue-sonner'
 import CommentItem from '@/components/CommentItem.vue'
 import { useRouter } from 'vue-router'
+import CommentSkeleton from './CommentSkeleton.vue'
 
 const props = defineProps({
   post: {
@@ -190,7 +192,6 @@ const props = defineProps({
 const authStore = useAuthStore()
 const postsStore = usePostsStore()
 const commentsStore = useCommentsStore()
-const router = useRouter()
 
 const isLiking = ref(false)
 const showComments = ref(false)
@@ -271,8 +272,10 @@ const toggleLike = async () => {
 const toggleComments = async () => {
   showComments.value = !showComments.value
 
-  if (showComments.value && commentsStore.comments.length === 0) {
+  if (showComments.value && !commentsStore.comments[props.post.id]) {
     await loadComments()
+  } else if (!showComments.value) {
+    commentsStore.clearComments(post.id) // Optional
   }
 }
 
