@@ -107,4 +107,4 @@ The frontend is configured to work with your Django REST API:
 
 
 
-This frontend provides a complete social media experience that integrates seamlessly with your Django REST API backend.****
+This frontend provides a complete social media experience that integrates seamlessly with your Django REST API backend.
